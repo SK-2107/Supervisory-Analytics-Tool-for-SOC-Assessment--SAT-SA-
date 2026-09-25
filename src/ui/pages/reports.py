@@ -132,11 +132,20 @@ def render_reports_page(conn, has_data: bool, results):
             decisions_df = get_review_decisions(conn)
             t_export = df_tickets.copy()
             if not decisions_df.empty:
+                cols_to_use = [c for c in ["ticket_id", "status", "decision", "supervisor_notes", "updated_at"] if c in decisions_df.columns]
+                dec_sub = decisions_df[cols_to_use].rename(columns={"status": "supervisory_status"})
                 t_export = t_export.merge(
-                    decisions_df[["ticket_id", "status", "decision", "supervisor_notes", "updated_at"]],
+                    dec_sub,
                     left_on="entity_id", right_on="ticket_id", how="left",
                 )
-            t_export["status"] = t_export["status"].fillna("OPEN")
+                if "supervisory_status" in t_export.columns:
+                    fallback_status = t_export["status"] if "status" in t_export.columns else "OPEN"
+                    t_export["status"] = t_export["supervisory_status"].fillna(fallback_status)
+                    t_export = t_export.drop(columns=["supervisory_status"], errors="ignore")
+            if "status" not in t_export.columns:
+                t_export["status"] = "OPEN"
+            else:
+                t_export["status"] = t_export["status"].fillna("OPEN")
             st.download_button(
                 label=f"⬇  Export Review Queue ({len(t_export)} cases)",
                 data=t_export.to_csv(index=False).encode("utf-8"),

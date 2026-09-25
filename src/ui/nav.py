@@ -122,7 +122,7 @@ def render_global_header(conn, has_data: bool, current_page: str = None, **kwarg
     with st.container():
         gs1, gs2 = st.columns([6, 1])
         query = gs1.text_input(
-            "",
+            "Global Search",
             value=st.session_state.get("search_query", ""),
             placeholder="🔍  Search entities, findings, tickets, analysts…",
             label_visibility="collapsed",

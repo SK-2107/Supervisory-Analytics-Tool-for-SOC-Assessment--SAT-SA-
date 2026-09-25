@@ -119,7 +119,7 @@ def render_benchmarking_page(conn, results):
             "Percentage of CRITICAL priority incidents formally escalated to Tier-2 / CSIRT. Low rates for critical cases may signal governance gaps."
         ),
     }
-    sel_metric_label = st.selectbox("", list(metric_choices.keys()), key="bench_metric", label_visibility="collapsed")
+    sel_metric_label = st.selectbox("Select Operational Metric", list(metric_choices.keys()), key="bench_metric", label_visibility="collapsed")
     col_name, metric_desc = metric_choices[sel_metric_label]
 
     sel_val  = float(selected[col_name]) if pd.notna(selected[col_name]) else 0.0

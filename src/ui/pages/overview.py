@@ -247,7 +247,7 @@ def render_overview_page(conn, results):
         key="ov_att",
         label_visibility="collapsed",
     )
-    txt_q = fc3.text_input("", placeholder="Search entity name…", key="ov_txt", label_visibility="collapsed")
+    txt_q = fc3.text_input("Search Entity Name", placeholder="Search entity name…", key="ov_txt", label_visibility="collapsed")
 
     filtered = merged.copy()
     if sel_sec != "All Sectors":

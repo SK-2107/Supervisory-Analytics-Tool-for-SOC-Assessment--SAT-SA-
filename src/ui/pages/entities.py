@@ -80,7 +80,7 @@ def render_entities_page(conn, results):
     sel_sec  = f1.selectbox("Sector",       sectors,  key="ent_sec")
     sel_crit = f2.selectbox("Criticality",  crits,    key="ent_crit")
     sel_att  = f3.selectbox("Attention",    att_opts, key="ent_att")
-    txt_q    = f4.text_input("", placeholder="Search by name or CSE ID…", key="ent_txt", label_visibility="collapsed")
+    txt_q    = f4.text_input("Filter Entities", placeholder="Search by name or CSE ID…", key="ent_txt", label_visibility="collapsed")
 
     filtered = merged.copy()
     if sel_sec  != "All Sectors":         filtered = filtered[filtered["sector"] == sel_sec]

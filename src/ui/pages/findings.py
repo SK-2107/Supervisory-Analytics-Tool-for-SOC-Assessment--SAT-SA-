@@ -106,7 +106,7 @@ def render_findings_page(conn, results):
     sel_sec = f2.selectbox("Sector",     sec_opts, key="fnd_sec")
     sel_sev = f3.selectbox("Severity",   sev_opts, key="fnd_sev")
     sel_cap = f4.selectbox("Capability", cap_opts, key="fnd_cap")
-    txt_q   = f5.text_input("", placeholder="Search title or reason…", key="fnd_txt", label_visibility="collapsed")
+    txt_q   = f5.text_input("Search Findings", placeholder="Search title or reason…", key="fnd_txt", label_visibility="collapsed")
 
     filtered = df.copy()
     if sel_ent != "All Entities":     filtered = filtered[filtered["entity_name"] == sel_ent]
