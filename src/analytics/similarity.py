@@ -94,6 +94,27 @@ def _pure_python_tfidf_cosine_sim(texts):
     return cos_sim
 
 
+def preprocess_investigation_note(text: str) -> str:
+    """
+    Normalizes investigation note text before TF-IDF vectorization to prevent
+    boilerplate, timestamps, IP addresses, and metadata headers from falsely inflating similarity.
+    Preserves core investigative and diagnostic narrative content.
+    """
+    if not text or not isinstance(text, str):
+        return ""
+    # Strip dates and timestamps (e.g. 2026-09-01, 14:22:10, 2026/09/01T12:00:00Z)
+    cleaned = re.sub(r'\b\d{4}[-/]\d{2}[-/]\d{2}(?:[T\s]\d{2}:\d{2}(?::\d{2})?(?:[Zz]|[-+]\d{2}:?\d{2})?)?\b', ' ', text)
+    cleaned = re.sub(r'\b\d{1,2}:\d{2}(?::\d{2})?\b', ' ', cleaned)
+    # Strip IPv4 addresses
+    cleaned = re.sub(r'\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b', ' ', cleaned)
+    # Strip standard ticket / case identifiers (e.g. TKT-5001, ALT-1002, CSE-104)
+    cleaned = re.sub(r'\b(?:TKT|ALT|CSE|AN|AST|LOG|CASE|INC)-[A-Za-z0-9_-]+\b', ' ', cleaned, flags=re.IGNORECASE)
+    # Strip boilerplate header labels
+    cleaned = re.sub(r'\b(?:Ticket\s*ID|Alert\s*ID|Timestamp|Analyst\s*Name|Severity|Priority|Status|Rule\s*Name)\s*:\s*', ' ', cleaned, flags=re.IGNORECASE)
+    # Normalize whitespace
+    return re.sub(r'\s+', ' ', cleaned).strip()
+
+
 def detect_repetitive_investigations(conn, similarity_threshold: float = 0.85, max_display_pairs: int = 50):
     """
     Computes TF-IDF vectors for investigation notes and detects high pairwise cosine similarity.
@@ -126,17 +147,29 @@ def detect_repetitive_investigations(conn, similarity_threshold: float = 0.85, m
             "analyst_similarity_scores": pd.DataFrame()
         }
 
+    # Preprocess notes to remove noise and extract substantive investigation text
+    df["clean_text"] = df["note_text"].apply(preprocess_investigation_note)
+    valid_mask = df["clean_text"].str.len() >= 15
+    df = df[valid_mask].reset_index(drop=True)
+
+    if len(df) < 2:
+        return {
+            "high_similarity_pairs": pd.DataFrame(),
+            "ticket_similarity_scores": pd.DataFrame(),
+            "analyst_similarity_scores": pd.DataFrame()
+        }
+
     cos_sim = None
     if HAS_SKLEARN:
         try:
             vectorizer = TfidfVectorizer(ngram_range=(1, 2), stop_words="english", max_features=1000)
-            tfidf_matrix = vectorizer.fit_transform(df["note_text"])
+            tfidf_matrix = vectorizer.fit_transform(df["clean_text"])
             cos_sim = cosine_similarity(tfidf_matrix)
         except Exception:
             cos_sim = None
 
     if cos_sim is None:
-        cos_sim = _pure_python_tfidf_cosine_sim(df["note_text"].tolist())
+        cos_sim = _pure_python_tfidf_cosine_sim(df["clean_text"].tolist())
 
     # Upper triangle indices without self-matches (i < j)
     rows, cols = np.where(np.triu(cos_sim, k=1) >= similarity_threshold)

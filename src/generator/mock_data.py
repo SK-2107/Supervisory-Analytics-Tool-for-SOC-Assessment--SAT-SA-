@@ -1,5 +1,5 @@
 """
-Synthetic SOC Operational Dataset & Data Provenance Generator for SAT-SA (SIH26157).
+Synthetic SOC Operational Dataset & Data Provenance Generator for SAT-SA.
 Generates realistic SOC operational logs mapped to Critical Sector Entities (CSEs) and Asset Inventories
 with deliberate ground-truth behavioral profiles for supervisory analytics validation.
 """
@@ -388,7 +388,7 @@ def get_dataset_provenance() -> dict:
         "version": "1.0.0",
         "description": (
             "Realistic, structured synthetic SOC operational dataset designed strictly according to the SAT-SA schema "
-            "for SIH26157 supervisory analytics validation. Contains complete relational integrity linking CSEs, "
+            "for supervisory analytics validation. Contains complete relational integrity linking CSEs, "
             "Asset Inventories, Analysts, Shift Logs, Alerts, Cases/Tickets, and Triage Notes."
         ),
         "environment": "NCIIPC Air-Gapped Prototype Evaluation",

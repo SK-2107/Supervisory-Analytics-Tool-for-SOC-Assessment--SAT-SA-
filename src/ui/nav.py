@@ -1,7 +1,6 @@
 """
-Global Header, Top Navigation, Breadcrumbs & Search for SAT-SA 2.0.
-Enterprise Light Theme — NO SIDEBAR, Top Navigation Only.
-Ensures 'Benchmarking' and all primary nav tabs are never truncated.
+Global Navigation, Header & Routing for SAT-SA.
+Top navigation only. No sidebar.
 """
 
 import streamlit as st
@@ -11,28 +10,35 @@ from datetime import datetime
 from src.ui.db_helper import get_assessment_period, get_last_assessment_time
 
 NAV_ITEMS = [
-    ("overview", "Overview"),
-    ("entities", "Entities"),
-    ("findings", "Findings"),
-    ("reviews", "Reviews"),
+    ("overview",     "Overview"),
+    ("entities",     "Entities"),
+    ("findings",     "Findings & Evidence"),
+    ("reviews",      "Review Queue"),
     ("benchmarking", "Benchmarking"),
-    ("assessment", "Assessment"),
-    ("reports", "Reports"),
+    ("assessment",   "Data & Reports"),
+    ("reports",      "Export"),
 ]
 
 
 def fmt_dt(value) -> str:
-    if value is None or pd.isna(value):
-        return "16 Sep 2026, 17:18"
-    ts = pd.to_datetime(value)
-    return ts.strftime("%d %b %Y, %H:%M")
+    if value is None:
+        return "—"
+    try:
+        ts = pd.to_datetime(value)
+        return ts.strftime("%d %b %Y, %H:%M")
+    except Exception:
+        return "—"
 
 
 def fmt_period(start, end) -> str:
-    if start is None or end is None or pd.isna(start) or pd.isna(end):
-        return "01 Sep 2026 — 03 Sep 2026"
-    s, e = pd.to_datetime(start), pd.to_datetime(end)
-    return f"{s.strftime('%d %b %Y')} — {e.strftime('%d %b %Y')}"
+    if start is None or end is None:
+        return "No period data"
+    try:
+        s = pd.to_datetime(start)
+        e = pd.to_datetime(end)
+        return f"{s.strftime('%d %b %Y')} — {e.strftime('%d %b %Y')}"
+    except Exception:
+        return "—"
 
 
 def go_to(page: str, **kwargs):
@@ -43,214 +49,159 @@ def go_to(page: str, **kwargs):
 
 
 def render_breadcrumbs(crumbs: list):
-    """
-    Renders breadcrumb trail.
-    crumbs: list of (label, page_key_or_None, kwargs_or_None)
-    """
-    html_parts = ['<div class="satsa-breadcrumbs">']
+    parts = ['<div class="satsa-breadcrumbs">']
     for idx, item in enumerate(crumbs):
         label = item[0]
-        page = item[1] if len(item) > 1 else None
-        kwargs = item[2] if len(item) > 2 else {}
-
+        page  = item[1] if len(item) > 1 else None
         if idx > 0:
-            html_parts.append('<span style="color:#B2BDC0; margin: 0 4px;">/</span>')
-
+            parts.append('<span style="color:#D1D5DB; margin:0 5px;">›</span>')
         if page is not None:
-            # clickable
-            html_parts.append(f'<span class="satsa-breadcrumb-item">{label}</span>')
+            parts.append(f'<span class="satsa-breadcrumb-item">{label}</span>')
         else:
-            # current page
-            html_parts.append(f'<span class="satsa-breadcrumb-current">{label}</span>')
-
-    html_parts.append('</div>')
-    st.markdown("".join(html_parts), unsafe_allow_html=True)
+            parts.append(f'<span class="satsa-breadcrumb-current">{label}</span>')
+    parts.append('</div>')
+    st.markdown("".join(parts), unsafe_allow_html=True)
 
 
-def render_global_header(conn, has_data: bool):
-    """
-    Renders the unified enterprise top header, status strip, navigation, and global search.
-    """
-    lo, hi = get_assessment_period(conn)
-    last_run = get_last_assessment_time(conn)
+def render_global_header(conn, has_data: bool, current_page: str = None, **kwargs):
+    lo, hi    = get_assessment_period(conn)
+    last_run  = get_last_assessment_time(conn)
+    period    = fmt_period(lo, hi)
+    last_str  = fmt_dt(last_run)
+    status_html = (
+        '<span class="satsa-status-pill satsa-pill-green">● Analysis complete</span>'
+        if has_data else
+        '<span class="satsa-status-pill" style="background:#FFF7ED;color:#EA580C;border:1px solid #FED7AA;">● Awaiting data</span>'
+    )
 
-    # 1. Top Enterprise Brand & Metadata Bar
-    with st.container():
-        st.markdown(
-            f"""
-            <div class="satsa-header-wrapper">
-                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
-                    <div>
-                        <div class="satsa-brand-title">
-                            <span style="display:inline-block; width:10px; height:10px; background:#087F73; border-radius:2px;"></span>
-                            SAT‑SA
-                            <span style="font-size: 13px; font-weight: 500; color: #667579; margin-left: 6px;">|</span>
-                            <span style="font-size: 14px; font-weight: 600; color: #485659; margin-left: 6px;">Supervisory Analytics for SOC Assessment</span>
-                        </div>
-                        <div class="satsa-brand-tagline">National Critical Sector SOC Operations Oversight</div>
-                    </div>
-                    <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
-                        <div title="Offline Air-Gapped Operation: All assessment data is processed locally within the controlled environment.">
-                            <span class="satsa-pill-badge satsa-local-badge">
-                                <span style="font-size: 8px;">●</span> LOCAL PROCESSING
-                            </span>
-                        </div>
-                        <div style="text-align: right; border-left: 1px solid #E4E9E8; padding-left: 14px;">
-                            <div class="meta-line">Assessment Period: <strong style="color: #172326;">{fmt_period(lo, hi)}</strong></div>
-                            <div class="meta-line" style="margin-top: 2px;">
-                                <span style="color: #278A55; font-weight: 600;">● Analysis completed</span> &nbsp;·&nbsp; Last run: {fmt_dt(last_run)}
-                            </div>
-                        </div>
-                    </div>
-                </div>
+    st.markdown(
+        f"""
+        <div style="background:#FFFFFF; border-bottom:1px solid #E5E7EB; padding:0 0 0 0; margin-bottom:0;">
+          <!-- Brand row -->
+          <div style="display:flex; justify-content:space-between; align-items:center; padding:12px 4px 10px 4px; flex-wrap:wrap; gap:10px;">
+            <div style="display:flex; align-items:center; gap:12px;">
+              <div style="width:34px; height:34px; background:linear-gradient(135deg,#0D9488,#0F766E); border-radius:8px; display:inline-flex; align-items:center; justify-content:center; color:white; font-size:14px; font-weight:800; letter-spacing:-1px; flex-shrink:0;">SA</div>
+              <div>
+                <div style="font-size:17px; font-weight:800; color:#111827; letter-spacing:-0.025em; line-height:1;">SAT‑SA</div>
+                <div style="font-size:10.5px; font-weight:500; color:#6B7280; text-transform:uppercase; letter-spacing:0.06em; margin-top:1px;">Supervisory Analytics · SOC Assessment</div>
+              </div>
             </div>
-            """,
-            unsafe_allow_html=True,
-        )
+            <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
+              {status_html}
+              <span class="satsa-status-pill satsa-pill-teal">⊙ Offline / Air-Gapped</span>
+              <div style="border-left:1px solid #E5E7EB; padding-left:14px;">
+                <div style="font-size:11.5px; color:#6B7280;">Period: <strong style="color:#111827;">{period}</strong></div>
+                <div style="font-size:11.5px; color:#6B7280; margin-top:1px;">Last run: <strong style="color:#111827;">{last_str}</strong></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
-    # 2. Main Navigation Bar (Clean top buttons with ample width, NO TRUNCATION)
-    nav_cols = st.columns([1.1, 1.1, 1.1, 1.1, 1.4, 1.2, 1.1])
+    # Navigation strip — uses Streamlit columns for clickable buttons
+    current = current_page or st.session_state.get("page", "overview")
+    nav_cols = st.columns(len(NAV_ITEMS))
     for col, (key, label) in zip(nav_cols, NAV_ITEMS):
         is_active = (
-            st.session_state.page == key or
-            (key == "entities" and st.session_state.page == "entity_detail") or
-            (key == "findings" and st.session_state.page == "finding_detail")
+            current == key
+            or (key == "entities"  and current == "entity_detail")
+            or (key == "findings"  and current == "finding_detail")
         )
-        if col.button(
+        col.button(
             label,
-            key=f"nav_btn_{key}",
+            key=f"nav_{key}",
             type="primary" if is_active else "secondary",
             use_container_width=True,
-        ):
-            go_to(key)
+            on_click=go_to,
+            args=(key,),
+        )
 
-    # 3. Global Search Bar
+    # Global search
     with st.container():
-        search_cols = st.columns([6, 1])
-        query = search_cols[0].text_input(
-            "Global Search",
+        gs1, gs2 = st.columns([6, 1])
+        query = gs1.text_input(
+            "",
             value=st.session_state.get("search_query", ""),
-            placeholder="Search entities, tickets, findings, analysts…",
+            placeholder="🔍  Search entities, findings, tickets, analysts…",
             label_visibility="collapsed",
             key="global_search_input",
         )
-        if search_cols[1].button("Search", key="global_search_btn", use_container_width=True):
+        if gs2.button("Search", key="global_search_btn", use_container_width=True):
             st.session_state.search_query = query
             st.rerun()
 
     if st.session_state.get("search_query"):
-        render_search_dropdown(conn, st.session_state.search_query)
+        _render_search_results(conn, st.session_state.search_query)
 
-    st.markdown("<hr/>", unsafe_allow_html=True)
+    st.markdown('<hr style="margin:6px 0 14px 0;border:0;border-top:1px solid #E5E7EB;">', unsafe_allow_html=True)
 
 
-def render_search_dropdown(conn, query: str):
-    """Renders grouped search results across Entities, Findings, Cases, and Analysts."""
-    clean_query = query.strip()
-    if not clean_query:
-        return
-
-    like_pat = f"%{clean_query}%"
+def _render_search_results(conn, query: str):
+    pat = f"%{query.strip()}%"
     with st.container():
         st.markdown(
             f"""
-            <div class="satsa-card" style="border: 1px solid #B2DDD7; background-color: #FAFCFC; margin-bottom: 16px;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
-                    <div style="font-weight: 700; font-size: 14px; color: #172326;">
-                        Search results for “<span style="color:#087F73;">{clean_query}</span>”
-                    </div>
+            <div class="satsa-card" style="border:1px solid #99F6E4; margin-bottom:12px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                <div style="font-weight:700; font-size:14px; color:#111827;">
+                  Results for "<span style="color:#0D9488;">{query.strip()}</span>"
                 </div>
+              </div>
             """,
             unsafe_allow_html=True,
         )
-
-        h_cols = st.columns([6, 1])
-        if h_cols[1].button("Clear Search", key="btn_clear_search", type="secondary"):
+        clr1, clr2 = st.columns([8, 1])
+        if clr2.button("✕ Clear", key="btn_clear_search", type="secondary"):
             st.session_state.search_query = ""
             st.rerun()
 
-        found_any = False
+        found = False
 
-        # Group 1: Entities
-        entities = conn.execute(
-            """
-            SELECT cse_id, entity_name, sector, criticality 
-            FROM cses 
-            WHERE entity_name ILIKE ? OR cse_id ILIKE ? OR sector ILIKE ? 
-            LIMIT 4
-            """,
-            [like_pat, like_pat, like_pat],
+        ents = conn.execute(
+            "SELECT cse_id, entity_name, sector, criticality FROM cses WHERE entity_name ILIKE ? OR cse_id ILIKE ? LIMIT 5",
+            [pat, pat],
         ).df()
-        if not entities.empty:
-            found_any = True
-            st.markdown('<div class="section-title" style="font-size:13px; color:#087F73;">ENTITIES</div>', unsafe_allow_html=True)
-            for _, r in entities.iterrows():
-                ec1, ec2 = st.columns([5.5, 1.5])
-                ec1.markdown(f"**{r['entity_name']}** · Sector: {r['sector']} · Criticality: {r['criticality'].title()} · `{r['cse_id']}`")
-                if ec2.button("Open Entity →", key=f"sr_e_{r['cse_id']}", type="secondary"):
+        if not ents.empty:
+            found = True
+            st.markdown('<div style="font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:.07em;margin:4px 0 6px;">Entities</div>', unsafe_allow_html=True)
+            for _, r in ents.iterrows():
+                c1, c2 = st.columns([6, 1.2])
+                c1.markdown(f"**{r['entity_name']}** · `{r['cse_id']}` · {r['sector']} · {r['criticality'].title()}")
+                if c2.button("Open →", key=f"sr_e_{r['cse_id']}", type="secondary"):
                     st.session_state.search_query = ""
                     go_to("entity_detail", selected_entity=r["cse_id"])
 
-        # Group 2: Findings
-        findings = conn.execute(
-            """
-            SELECT f.finding_id, f.cse_id, f.finding_title, f.dimension, c.entity_name 
-            FROM findings f 
-            LEFT JOIN cses c ON f.cse_id = c.cse_id 
-            WHERE f.finding_title ILIKE ? OR f.reason ILIKE ? OR f.finding_id ILIKE ? 
-            LIMIT 4
-            """,
-            [like_pat, like_pat, like_pat],
+        fnds = conn.execute(
+            "SELECT f.finding_id, f.cse_id, f.finding_title, f.dimension, c.entity_name FROM findings f LEFT JOIN cses c ON f.cse_id=c.cse_id WHERE f.finding_title ILIKE ? OR f.reason ILIKE ? LIMIT 5",
+            [pat, pat],
         ).df()
-        if not findings.empty:
-            found_any = True
-            st.markdown('<div class="section-title" style="font-size:13px; color:#087F73; margin-top:8px;">SUPERVISORY FINDINGS</div>', unsafe_allow_html=True)
-            for _, r in findings.iterrows():
-                fc1, fc2 = st.columns([5.5, 1.5])
-                fc1.markdown(f"**{r['finding_title']}** · {r['dimension']} · Entity: {r.get('entity_name', r['cse_id'])}")
-                if fc2.button("Open Finding →", key=f"sr_f_{r['finding_id']}", type="secondary"):
+        if not fnds.empty:
+            found = True
+            st.markdown('<div style="font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:.07em;margin:10px 0 6px;">Findings</div>', unsafe_allow_html=True)
+            for _, r in fnds.iterrows():
+                f1, f2 = st.columns([6, 1.2])
+                f1.markdown(f"**{r['finding_title']}** · {r['dimension']} · {r.get('entity_name', r['cse_id'])}")
+                if f2.button("Open →", key=f"sr_f_{r['finding_id']}", type="secondary"):
                     st.session_state.search_query = ""
                     go_to("finding_detail", selected_finding=r["finding_id"])
 
-        # Group 3: Cases / Tickets
-        tickets = conn.execute(
-            """
-            SELECT t.ticket_id, t.cse_id, c.entity_name, t.priority, t.status 
-            FROM tickets t 
-            LEFT JOIN cses c ON t.cse_id = c.cse_id 
-            WHERE t.ticket_id ILIKE ? 
-            LIMIT 4
-            """,
-            [like_pat],
+        tkts = conn.execute(
+            "SELECT t.ticket_id, t.cse_id, c.entity_name, t.priority, t.status FROM tickets t LEFT JOIN cses c ON t.cse_id=c.cse_id WHERE t.ticket_id ILIKE ? LIMIT 5",
+            [pat],
         ).df()
-        if not tickets.empty:
-            found_any = True
-            st.markdown('<div class="section-title" style="font-size:13px; color:#087F73; margin-top:8px;">INCIDENT CASES / TICKETS</div>', unsafe_allow_html=True)
-            for _, r in tickets.iterrows():
-                tc1, tc2 = st.columns([5.5, 1.5])
-                tc1.markdown(f"Case **`{r['ticket_id']}`** · {r.get('entity_name', r['cse_id'])} · Priority: {r['priority']} · Status: {r['status']}")
-                if tc2.button("Review Case →", key=f"sr_t_{r['ticket_id']}", type="secondary"):
+        if not tkts.empty:
+            found = True
+            st.markdown('<div style="font-size:11px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:.07em;margin:10px 0 6px;">Cases / Tickets</div>', unsafe_allow_html=True)
+            for _, r in tkts.iterrows():
+                t1, t2 = st.columns([6, 1.2])
+                t1.markdown(f"Case **`{r['ticket_id']}`** · {r.get('entity_name','—')} · {r['priority']} · {r['status']}")
+                if t2.button("Review →", key=f"sr_t_{r['ticket_id']}", type="secondary"):
                     st.session_state.search_query = ""
-                    go_to("reviews", review_tab="Priority Cases", highlight_ticket=r["ticket_id"])
+                    go_to("reviews", highlight_ticket=r["ticket_id"])
 
-        # Group 4: Analysts
-        analysts = conn.execute(
-            """
-            SELECT a.analyst_id, a.name, a.tier, a.shift_group, c.entity_name 
-            FROM analysts a 
-            LEFT JOIN cses c ON a.cse_id = c.cse_id 
-            WHERE a.name ILIKE ? OR a.analyst_id ILIKE ? 
-            LIMIT 4
-            """,
-            [like_pat, like_pat],
-        ).df()
-        if not analysts.empty:
-            found_any = True
-            st.markdown('<div class="section-title" style="font-size:13px; color:#087F73; margin-top:8px;">SOC ANALYSTS</div>', unsafe_allow_html=True)
-            for _, r in analysts.iterrows():
-                st.markdown(f"Analyst **{r['name']}** · {r['tier']} · {r['shift_group']} shift · `{r['analyst_id']}` · {r.get('entity_name', '')}")
+        if not found:
+            st.caption("No matching results found.")
 
-        if not found_any:
-            st.caption("No matching entities, findings, tickets or analysts found for this query.")
-
-        st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)

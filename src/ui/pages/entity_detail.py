@@ -5,7 +5,7 @@ Enterprise Light Theme — Deep supervisory analytical inspection of a single Cr
 
 import streamlit as st
 import pandas as pd
-from src.ui.styles import badge, attention_band, finding_severity_band, COLOR_HIGH, COLOR_MODERATE, COLOR_TEAL_PRIMARY
+from src.ui.styles import badge, neutral_badge, attention_band, finding_severity_band, COLOR_CRITICAL, COLOR_HIGH, COLOR_MODERATE, COLOR_LOW, COLOR_TEAL_PRIMARY, fmt_timestamp
 from src.ui.nav import go_to, render_breadcrumbs
 from src.ui.db_helper import fetch_evidence_record, compute_ticket_signals
 from src.analytics.dimensions import DIMENSIONS
@@ -53,20 +53,20 @@ def render_entity_detail_page(conn, results):
     finding_count = int(score_row.iloc[0]["finding_count"]) if not score_row.empty else 0
     band_name = attention_band(total_score)
 
-    accent_color = COLOR_HIGH if band_name in ("Critical", "High") else (COLOR_MODERATE if band_name == "Moderate" else COLOR_TEAL_PRIMARY)
+    accent_color = COLOR_CRITICAL if band_name in ("Critical", "High") else (COLOR_MODERATE if band_name == "Moderate" else COLOR_TEAL_PRIMARY)
 
     # Entity Header Banner
     with st.container():
         st.markdown(
             f"""
-            <div class="satsa-card" style="border-left: 5px solid {accent_color}; margin-bottom: 18px;">
+            <div class="satsa-card" style="border-left: 5px solid {accent_color}; margin-bottom: 16px;">
                 <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px;">
                     <div>
-                        <div style="font-size: 24px; font-weight: 700; color: #172326; letter-spacing: -0.02em;">
+                        <div style="font-size: 22px; font-weight: 700; color: #172326; letter-spacing: -0.02em;">
                             {info['entity_name']}
                         </div>
-                        <div style="font-size: 13.5px; color: #667579; margin-top: 4px;">
-                            CSE ID: <strong>`{info['cse_id']}`</strong> &nbsp;·&nbsp;
+                        <div style="font-size: 13px; color: #667579; margin-top: 3px;">
+                            CSE ID: <strong>{info['cse_id']}</strong> &nbsp;·&nbsp;
                             Sector: <strong>{info['sector']}</strong> &nbsp;·&nbsp;
                             Criticality: <strong>{info['criticality'].title()}</strong> &nbsp;·&nbsp;
                             Maturity: <strong>{info['maturity_level']}</strong> &nbsp;·&nbsp;
@@ -128,15 +128,16 @@ def render_entity_detail_page(conn, results):
             "All analyzed incident triage, escalation, and shift logs conform to expected baseline thresholds."
         )
     else:
-        finding_titles = ", ".join([f"“{t}”" for t in entity_findings["finding_title"].unique()])
+        n_findings = len(entity_findings)
+        finding_titles = ", ".join([f'"{t}"' for t in entity_findings["finding_title"].unique()])
         summary_text = (
-            f"Supervisory assessment identified {len(entity_findings)} finding(s) requiring management review: {finding_titles}. "
+            f"Supervisory assessment identified {n_findings} {'finding' if n_findings == 1 else 'findings'} requiring management review: {finding_titles}. "
             f"The entity exhibits an attention score of {total_score:.1f}/100, warranting active operational scrutiny."
         )
 
     st.markdown(
         f"""
-        <div class="satsa-card" style="background-color: #FFFFFF; font-size: 14px; color: #172326; line-height: 1.55;">
+        <div class="satsa-card" style="background-color: #FFFFFF; font-size: 13.5px; color: #172326; line-height: 1.55;">
             {summary_text}
         </div>
         """,
@@ -170,7 +171,7 @@ def render_entity_detail_page(conn, results):
                     f"""
                     <div class="cap-row">
                         <div class="cap-label-row">
-                            <span style="font-size: 12.5px; font-weight: 600;">{d}</span>
+                            <span style="font-size: 12px; font-weight: 600;">{d}</span>
                             <span style="font-size: 12px; font-weight: 700; color:{fill_color};">{s:.1f} / 100</span>
                         </div>
                         <div class="cap-track"><div class="cap-fill" style="width:{pct}%; background:{fill_color};"></div></div>
@@ -181,7 +182,8 @@ def render_entity_detail_page(conn, results):
             st.markdown('</div>', unsafe_allow_html=True)
 
     with grid_cols[1]:
-        st.markdown(f'<div class="section-title">Structured Findings for this Entity ({len(entity_findings)})</div>', unsafe_allow_html=True)
+        n_ent_findings = len(entity_findings)
+        st.markdown(f'<div class="section-title">Structured Findings ({n_ent_findings})</div>', unsafe_allow_html=True)
         st.markdown(
             '<div class="section-desc">Gaps identified with empirical evidence and confidence ratings.</div>',
             unsafe_allow_html=True,
@@ -206,6 +208,7 @@ def render_entity_detail_page(conn, results):
                     dim_s = float(r_dim.get(fnd["dimension"], 0.0))
                 sev = finding_severity_band(dim_s)
                 evidence_ids = [e.strip() for e in str(fnd["evidence_record_ids"]).split(",") if e.strip()]
+                n_evidence = len(evidence_ids)
 
                 with st.container():
                     st.markdown(
@@ -213,20 +216,20 @@ def render_entity_detail_page(conn, results):
                         <div class="satsa-card satsa-card-interactive">
                             <div style="display:flex; justify-content:space-between; align-items:flex-start;">
                                 <div>
-                                    <span style="font-size: 15px; font-weight: 700; color: #172326;">{fnd['finding_title']}</span>
-                                    <span style="margin-left: 8px;">{badge(sev.upper(), sev)}</span>
-                                    <span style="margin-left: 6px;">{badge(fnd['confidence_strength'].title() + ' Confidence', 'Routine')}</span>
+                                    <span style="font-size: 14px; font-weight: 700; color: #172326;">{fnd['finding_title']}</span>
+                                    <span style="margin-left: 6px;">{badge(sev.upper(), sev)}</span>
+                                    <span style="margin-left: 4px;">{badge(fnd['confidence_strength'].title() + ' Confidence', 'Routine')}</span>
                                 </div>
                                 <span style="font-size: 12px; color: #667579;">{fnd['dimension']}</span>
                             </div>
-                            <div class="card-note" style="margin: 6px 0 8px 0;">
+                            <div class="card-note" style="margin: 4px 0 6px 0;">
                                 {fnd['reason']}
                             </div>
-                            <div style="font-size: 12px; color: #667579; background: #F8FAFA; padding: 6px 10px; border-radius: 4px; margin-bottom: 8px;">
+                            <div style="font-size: 12px; color: #667579; background: #FAFCFB; padding: 5px 10px; border-radius: 4px; margin-bottom: 6px;">
                                 <strong>Observed:</strong> {fnd['observed_value']} &nbsp;·&nbsp; <strong>Expected:</strong> {fnd['expected_baseline_value']}
                             </div>
                             <div style="font-size: 12px; color: #087F73;">
-                                <strong>{len(evidence_ids)}</strong> supporting evidence record{'s' if len(evidence_ids) != 1 else ''} attached
+                                <strong>{n_evidence}</strong> supporting evidence {'record' if n_evidence == 1 else 'records'} attached
                             </div>
                         </div>
                         """,
@@ -239,7 +242,7 @@ def render_entity_detail_page(conn, results):
     st.write("")
 
     # Supporting Evidence Drill-Down for this Entity
-    st.markdown('<div class="section-title">Supporting Evidence Records Drill-Down</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">Supporting Evidence Records</div>', unsafe_allow_html=True)
     st.markdown(
         '<div class="section-desc">Sample audit records associated with supervisory findings for this entity.</div>',
         unsafe_allow_html=True,
@@ -257,7 +260,7 @@ def render_entity_detail_page(conn, results):
         st.caption("No specific evidence records logged for this entity.")
     else:
         ev_sample = all_evidence_ids[:6]
-        tabs = st.tabs([f"{rec_id} ({rec_type})" for rec_id, rec_type, _ in ev_sample])
+        tabs = st.tabs([f"{rec_id}" for rec_id, rec_type, _ in ev_sample])
         for tab, (rec_id, rec_type, finding_title) in zip(tabs, ev_sample):
             with tab:
                 st.caption(f"Evidence for finding: **{finding_title}**")
@@ -275,15 +278,16 @@ def render_entity_detail_page(conn, results):
         for c, t in zip(thead, ["Case ID", "Priority", "Flagged Reason", "Score", "Action"]):
             c.markdown(f'<div class="tbl-head">{t}</div>', unsafe_allow_html=True)
 
-        for _, trow in ent_tickets.head(5).iterrows():
+        for idx, (_, trow) in enumerate(ent_tickets.head(5).iterrows()):
             t_signals = compute_ticket_signals(
                 fetch_evidence_record(conn, "ticket", trow["entity_id"]) or {}
             )
+            row_cls = "tbl-row-alt" if idx % 2 == 0 else "tbl-row"
             r = st.columns([1.5, 1.5, 3.5, 1.2, 1.3])
-            r[0].markdown(f'<div class="tbl-row"><strong>`{trow["entity_id"]}`</strong></div>', unsafe_allow_html=True)
-            r[1].markdown(f'<div class="tbl-row">{badge("HIGH", "High")}</div>', unsafe_allow_html=True)
-            r[2].markdown(f'<div class="tbl-row card-note">{t_signals[0] if t_signals else "Pattern deviation"}</div>', unsafe_allow_html=True)
-            r[3].markdown(f'<div class="tbl-row" style="font-weight:600;">{trow["total_score"]:.0f}</div>', unsafe_allow_html=True)
+            r[0].markdown(f'<div class="{row_cls}"><strong>`{trow["entity_id"]}`</strong></div>', unsafe_allow_html=True)
+            r[1].markdown(f'<div class="{row_cls}">{badge(trow["priority"].title(), trow["priority"].title())}</div>', unsafe_allow_html=True)
+            r[2].markdown(f'<div class="{row_cls} card-note">{t_signals[0] if t_signals else "Pattern deviation"}</div>', unsafe_allow_html=True)
+            r[3].markdown(f'<div class="{row_cls}" style="font-weight:600;">{trow["total_score"]:.0f}</div>', unsafe_allow_html=True)
             if r[4].button("Review →", key=f"ent_rev_tkt_{trow['entity_id']}", type="secondary", use_container_width=True):
                 go_to("reviews", review_tab="Priority Cases", highlight_ticket=trow["entity_id"])
 
@@ -309,9 +313,9 @@ def render_evidence_card(conn, source_type: str, record_id: str):
             c3.markdown(f"**Tier-2 Escalation:** <span style='color:{esc_color}; font-weight:600;'>{'Recorded' if esc else 'NOT RECORDED'}</span>", unsafe_allow_html=True)
 
             d1, d2, d3 = st.columns(3)
-            d1.caption(f"Opened: {rec.get('created_at')}")
-            d2.caption(f"Assigned: {rec.get('assigned_at')}")
-            d3.caption(f"Closed: {rec.get('closed_at')}")
+            d1.caption(f"Opened: {fmt_timestamp(rec.get('created_at'))}")
+            d2.caption(f"Assigned: {fmt_timestamp(rec.get('assigned_at'))}")
+            d3.caption(f"Closed: {fmt_timestamp(rec.get('closed_at'))}")
 
             if rec.get("rule_name"):
                 st.markdown(f"**Triggering Alert:** {rec['rule_name']} (Severity: {rec.get('alert_severity', '—')})")
@@ -319,7 +323,7 @@ def render_evidence_card(conn, source_type: str, record_id: str):
             st.markdown("**Investigation Note Recorded:**")
             note = rec.get("note_text")
             if note and str(note).strip():
-                st.markdown(f"> “{note}”")
+                st.markdown(f'> "{note}"')
                 st.caption(f"Word count: {int(rec.get('word_count') or 0)} words")
             else:
                 st.caption("No investigation note logged.")
@@ -331,17 +335,17 @@ def render_evidence_card(conn, source_type: str, record_id: str):
             c2.markdown(f"**Severity:** {rec.get('severity', '—')}")
             c2.markdown(f"**Source System:** {rec.get('source_system', '—')}")
             c3.markdown(f"**Rule:** {rec.get('rule_name', '—')}")
-            c3.caption(f"Timestamp: {rec.get('timestamp')}")
+            c3.caption(f"Timestamp: {fmt_timestamp(rec.get('timestamp'))}")
             if rec.get("raw_summary"):
-                st.markdown(f"> “{rec['raw_summary']}”")
+                st.markdown(f'> "{rec["raw_summary"]}"')
 
         elif source_type == "note":
             c1, c2 = st.columns(2)
             c1.markdown(f"**Note ID:** `{rec['note_id']}` (Case `{rec.get('ticket_id', '—')}`)")
             c1.caption(f"Entity: {rec.get('entity_name', '—')}")
             c2.markdown(f"**Analyst:** {rec.get('analyst_name', '—')}")
-            c2.caption(f"Logged at: {rec.get('created_at')}")
-            st.markdown(f"> “{rec.get('note_text', '—')}”")
+            c2.caption(f"Logged at: {fmt_timestamp(rec.get('created_at'))}")
+            st.markdown(f'> "{rec.get("note_text", "—")}"')
             st.caption(f"Word count: {int(rec.get('word_count') or 0)} words")
 
         elif source_type == "shift":

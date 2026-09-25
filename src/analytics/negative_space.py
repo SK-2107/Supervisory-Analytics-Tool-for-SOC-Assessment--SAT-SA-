@@ -1,6 +1,9 @@
 """
 Negative-Space Detection Module for SAT-SA.
 Identifies unlogged shift windows, missing handovers, and zero-note closures.
+Evaluates expected activity strictly against assigned operational shift rosters.
+Does NOT assume all SOCs are 24x7; non-operational hours for non-24x7 entities
+are respected without false penalty.
 Outputs labeled explicitly as 'Potential Negative-Space Signal'.
 """
 
@@ -10,6 +13,8 @@ import pandas as pd
 def detect_negative_space(conn):
     """
     Analyzes shift logs, tickets, and investigation notes for negative-space anomalies.
+    Only evaluates handover compliance for actively scheduled shift windows recorded
+    in the operational roster.
     Returns:
         dict with 'analyst_negative_space' and 'ticket_negative_space' DataFrames.
     """

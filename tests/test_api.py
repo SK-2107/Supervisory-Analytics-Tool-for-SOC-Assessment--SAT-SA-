@@ -13,7 +13,7 @@ def test_root_endpoint():
     response = client.get("/")
     assert response.status_code == 200
     data = response.json()
-    assert data["problem_statement"] == "SIH26157"
+    assert data["framework"] == "National Critical Sector SOC Operations Oversight"
 
 
 def test_seed_and_analytics_flow():

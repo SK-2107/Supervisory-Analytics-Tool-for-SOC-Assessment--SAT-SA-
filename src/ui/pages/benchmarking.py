@@ -1,45 +1,43 @@
 """
 Page: Peer Benchmarking.
-Enterprise Light Theme — Objective comparative operational analysis against peer sector entities.
+SAT-SA — Supervisory Analytics Tool for SOC Assessment.
 """
 
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
-from src.ui.styles import COLOR_TEAL_PRIMARY, COLOR_BORDER
+from src.ui.styles import neutral_badge, COLOR_TEAL_PRIMARY, COLOR_CRITICAL, COLOR_MODERATE, COLOR_LOW
 
 
 def render_benchmarking_page(conn, results):
     st.markdown('<div class="page-title">Peer Benchmarking</div>', unsafe_allow_html=True)
     st.markdown(
-        '<div class="page-subtitle">Compare operational patterns with similar critical sector entities to detect cohort-level anomalies.</div>',
+        '<div class="page-subtitle">Compare how each entity performs against similar organisations in its sector cohort. Significant deviations may indicate areas warranting supervisory attention.</div>',
         unsafe_allow_html=True,
     )
 
     df_cses = conn.execute("SELECT cse_id, entity_name, peer_group, sector FROM cses").df()
     if df_cses.empty:
         st.markdown(
-            """
-            <div class="satsa-card" style="text-align: center; padding: 24px;">
-                <div style="font-weight: 600; color: #172326;">No Entities Available for Benchmarking</div>
-            </div>
-            """,
+            '<div class="empty-state"><div class="empty-state-icon">📊</div><div class="empty-state-title">No Entities Available</div><div class="empty-state-desc">Import entity data to enable peer benchmarking.</div></div>',
             unsafe_allow_html=True,
         )
         return
 
-    # Entity selection
+    # Entity selector
+    st.markdown('<div class="section-title">Select Entity for Comparison</div>', unsafe_allow_html=True)
     entity_id = st.selectbox(
-        "Select Entity for Peer Comparison",
+        "Entity",
         df_cses["cse_id"].tolist(),
         format_func=lambda cid: df_cses.loc[df_cses["cse_id"] == cid, "entity_name"].values[0],
-        key="bench_sel_entity",
+        key="bench_ent",
+        label_visibility="collapsed",
     )
-    ent_row = df_cses.loc[df_cses["cse_id"] == entity_id].iloc[0]
+    ent_row    = df_cses.loc[df_cses["cse_id"] == entity_id].iloc[0]
     peer_group = ent_row["peer_group"]
     sector_name = ent_row["sector"]
 
-    # Compute operational metrics across entities
+    # Compute telemetry metrics
     metrics_df = conn.execute(
         """
         SELECT c.cse_id, c.entity_name, c.peer_group, c.sector,
@@ -57,94 +55,136 @@ def render_benchmarking_page(conn, results):
     ).df()
 
     if metrics_df.empty:
-        st.caption("No operational ticket data available for peer comparison.")
-        return
+        # Telemetry-based fallback using alerts
+        metrics_df = conn.execute(
+            """
+            SELECT c.cse_id, c.entity_name, c.peer_group, c.sector,
+                   NULL AS avg_investigation_mins,
+                   NULL AS avg_note_words,
+                   0    AS critical_cases,
+                   0    AS critical_escalated,
+                   0    AS total_cases
+            FROM cses c
+            """
+        ).df()
+        st.markdown(
+            '<div class="satsa-info-banner" style="font-size:13px;">No incident ticket data available. Displaying alert-based metrics only.</div>',
+            unsafe_allow_html=True,
+        )
 
     metrics_df["escalation_rate"] = metrics_df.apply(
-        lambda r: (r["critical_escalated"] / r["critical_cases"] * 100.0) if r["critical_cases"] else 0.0,
+        lambda r: (r["critical_escalated"] / r["critical_cases"] * 100.0) if r["critical_cases"] > 0 else 0.0,
         axis=1,
     )
 
+    if entity_id not in metrics_df["cse_id"].values:
+        st.caption("No metrics available for the selected entity.")
+        return
+
     selected = metrics_df[metrics_df["cse_id"] == entity_id].iloc[0]
-    peers = metrics_df[(metrics_df["peer_group"] == peer_group) & (metrics_df["cse_id"] != entity_id)]
-    compare_pool = peers if not peers.empty else metrics_df[metrics_df["cse_id"] != entity_id]
+    peers    = metrics_df[(metrics_df["peer_group"] == peer_group) & (metrics_df["cse_id"] != entity_id)]
+    pool     = peers if not peers.empty else metrics_df[metrics_df["cse_id"] != entity_id]
 
-    def peer_median(col_name):
-        return float(compare_pool[col_name].median()) if not compare_pool.empty else float(selected[col_name])
+    def peer_median(col):
+        return float(pool[col].median()) if not pool.empty and pool[col].notna().any() else float(selected[col] or 0)
 
+    # Context card
     st.markdown(
         f"""
-        <div class="satsa-card" style="margin-bottom: 16px;">
-            <div style="font-size: 14px; color: #172326;">
-                Selected Entity: <strong>{selected['entity_name']}</strong> &nbsp;·&nbsp;
+        <div class="satsa-card" style="margin-bottom:16px;">
+            <div style="font-size:14px; color:#111827; line-height:1.6;">
+                Selected entity: <strong>{selected['entity_name']}</strong> &nbsp;·&nbsp;
                 Sector: <strong>{sector_name}</strong> &nbsp;·&nbsp;
-                Assigned Peer Cohort: <strong>{peer_group}</strong> ({len(compare_pool)} comparable peer entit{'y' if len(compare_pool)==1 else 'ies'})
+                Peer cohort: <strong>{peer_group}</strong>
+                <span style="color:#6B7280;"> ({len(pool)} comparable {'entity' if len(pool)==1 else 'entities'})</span>
             </div>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-    # Metric selection
+    # Metric picker
+    st.markdown('<div class="section-title">Select Operational Metric</div>', unsafe_allow_html=True)
     metric_choices = {
-        "Investigation Time (Minutes)": ("avg_investigation_mins", "Average minutes elapsed between ticket assignment and ticket closure."),
-        "Average Investigation Note Length (Words)": ("avg_note_words", "Mean word count per recorded triage investigation note."),
-        "Critical Incident Escalation Rate (%)": ("escalation_rate", "Percentage of CRITICAL priority incidents formally escalated to Tier-2 / CSIRT."),
+        "Investigation Time (minutes)": (
+            "avg_investigation_mins",
+            "Average time elapsed between incident ticket assignment and closure. Unusually fast closure may indicate insufficient investigation."
+        ),
+        "Investigation Note Length (words)": (
+            "avg_note_words",
+            "Mean word count of recorded triage investigation notes. Very short notes may indicate superficial documentation."
+        ),
+        "Critical Escalation Rate (%)": (
+            "escalation_rate",
+            "Percentage of CRITICAL priority incidents formally escalated to Tier-2 / CSIRT. Low rates for critical cases may signal governance gaps."
+        ),
     }
-
-    sel_metric_label = st.selectbox("Select Operational Metric", list(metric_choices.keys()), key="bench_sel_metric")
+    sel_metric_label = st.selectbox("", list(metric_choices.keys()), key="bench_metric", label_visibility="collapsed")
     col_name, metric_desc = metric_choices[sel_metric_label]
 
-    sel_val = float(selected[col_name]) if pd.notna(selected[col_name]) else 0.0
+    sel_val  = float(selected[col_name]) if pd.notna(selected[col_name]) else 0.0
     peer_val = peer_median(col_name)
     diff_pct = ((sel_val - peer_val) / peer_val * 100.0) if peer_val != 0 else 0.0
 
-    # Metric Cards
+    # KPI cards
     c1, c2, c3 = st.columns(3)
     c1.markdown(
-        f'<div class="satsa-kpi-block"><div class="satsa-kpi-label">Selected Entity</div><div class="satsa-kpi-value" style="color:#087F73;">{sel_val:,.1f}</div><div class="satsa-kpi-sub">{selected["entity_name"]}</div></div>',
+        f'<div class="satsa-kpi-block"><div class="satsa-kpi-label">Selected Entity</div><div class="satsa-kpi-value" style="color:{COLOR_TEAL_PRIMARY};">{sel_val:,.1f}</div><div class="satsa-kpi-sub">{selected["entity_name"]}</div></div>',
         unsafe_allow_html=True,
     )
     c2.markdown(
-        f'<div class="satsa-kpi-block"><div class="satsa-kpi-label">Peer Cohort Median</div><div class="satsa-kpi-value" style="color:#667579;">{peer_val:,.1f}</div><div class="satsa-kpi-sub">Sector baseline</div></div>',
+        f'<div class="satsa-kpi-block"><div class="satsa-kpi-label">Peer Cohort Median</div><div class="satsa-kpi-value" style="color:#6B7280;">{peer_val:,.1f}</div><div class="satsa-kpi-sub">Sector baseline</div></div>',
         unsafe_allow_html=True,
     )
-    diff_color = "#C93C3C" if (abs(diff_pct) > 25) else "#278A55"
+    diff_color = COLOR_CRITICAL if abs(diff_pct) > 30 else (COLOR_MODERATE if abs(diff_pct) > 15 else COLOR_LOW)
     c3.markdown(
-        f'<div class="satsa-kpi-block"><div class="satsa-kpi-label">Variance from Peer Median</div><div class="satsa-kpi-value" style="color:{diff_color};">{diff_pct:+.1f}%</div><div class="satsa-kpi-sub">Relative deviation</div></div>',
+        f'<div class="satsa-kpi-block"><div class="satsa-kpi-label">Variance from Peer</div><div class="satsa-kpi-value" style="color:{diff_color};">{diff_pct:+.1f}%</div><div class="satsa-kpi-sub">Relative deviation</div></div>',
         unsafe_allow_html=True,
     )
 
     st.write("")
 
-    # Comparative Horizontal Bar Visualization
-    fig = go.Figure()
-    fig.add_trace(go.Bar(
-        y=[selected["entity_name"], f"Peer Median ({peer_group})"],
-        x=[sel_val, peer_val],
+    # Chart
+    all_labels = [metrics_df.loc[metrics_df["cse_id"] == cid, "entity_name"].values[0] for cid in metrics_df["cse_id"]]
+    all_vals   = [float(metrics_df.loc[metrics_df["cse_id"] == cid, col_name].values[0] or 0) for cid in metrics_df["cse_id"]]
+    all_colors = [COLOR_TEAL_PRIMARY if cid == entity_id else "#D1D5DB" for cid in metrics_df["cse_id"]]
+
+    fig = go.Figure(go.Bar(
+        y=all_labels,
+        x=all_vals,
         orientation="h",
-        marker=dict(color=["#087F73", "#8C9B9E"]),
-        text=[f"{sel_val:.1f}", f"{peer_val:.1f}"],
+        marker=dict(color=all_colors, line=dict(width=0)),
+        text=[f"{v:.1f}" for v in all_vals],
         textposition="outside",
+        hovertemplate="%{y}: %{x:.1f}<extra></extra>",
     ))
     fig.update_layout(
-        height=200,
-        margin=dict(l=10, r=40, t=10, b=10),
+        height=max(200, len(all_labels) * 45),
+        margin=dict(l=0, r=60, t=10, b=10),
         plot_bgcolor="#FFFFFF",
         paper_bgcolor="#FFFFFF",
-        xaxis=dict(title=sel_metric_label, gridcolor="#EEF2F1", zeroline=False),
-        yaxis=dict(autorange="reversed"),
+        font=dict(family="Inter, -apple-system, sans-serif", size=12, color="#374151"),
+        xaxis=dict(
+            title=sel_metric_label,
+            gridcolor="#F3F4F6",
+            zeroline=False,
+            showline=True,
+            linecolor="#E5E7EB",
+        ),
+        yaxis=dict(autorange="reversed", tickfont=dict(size=12)),
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
-    # Contextual Explanation
+    # Context explanation
     st.markdown(
         f"""
-        <div class="satsa-card" style="background:#FAFCFC; border:1px solid #E4E9E8;">
-            <div style="font-weight: 700; color: #172326; margin-bottom: 4px;">Metric Context & Supervisory Meaning:</div>
-            <div style="font-size: 13.5px; color: #485659; line-height: 1.55;">
-                {metric_desc} In this comparison, {selected['entity_name']} records <strong>{sel_val:.1f}</strong> compared to the peer cohort median of <strong>{peer_val:.1f}</strong> (a variance of <strong>{diff_pct:+.1f}%</strong>). 
-                Significant deviations highlight operational divergence that may warrant supervisory sampling without pre-judging intent.
+        <div class="satsa-card" style="background:#F9FAFB;">
+            <div style="font-weight:700; color:#111827; margin-bottom:5px;">What does this metric mean for supervisors?</div>
+            <div style="font-size:13.5px; color:#374151; line-height:1.6;">
+                {metric_desc}<br/><br/>
+                <strong>{selected['entity_name']}</strong> records <strong>{sel_val:.1f}</strong> compared to the peer cohort median of <strong>{peer_val:.1f}</strong> (a variance of <strong>{diff_pct:+.1f}%</strong>).
+                Significant deviations highlight operational divergence that may warrant supervisory sampling
+                without pre-judging individual analyst intent.
             </div>
         </div>
         """,
@@ -153,19 +193,25 @@ def render_benchmarking_page(conn, results):
 
     st.write("")
 
-    # Full Peer Group Comparison Table
-    st.markdown(f'<div class="section-title">Full Peer Group Metrics: {peer_group}</div>', unsafe_allow_html=True)
-    cohort_df = metrics_df[metrics_df["peer_group"] == peer_group][["entity_name", "sector", "avg_investigation_mins", "avg_note_words", "escalation_rate", "total_cases"]].copy()
-    cohort_df = cohort_df.rename(columns={
-        "entity_name": "Entity Name",
-        "sector": "Sector",
-        "avg_investigation_mins": "Avg Investigation (min)",
-        "avg_note_words": "Avg Note Length (words)",
-        "escalation_rate": "Escalation Rate (%)",
-        "total_cases": "Total Cases",
-    })
-    cohort_df["Avg Investigation (min)"] = cohort_df["Avg Investigation (min)"].round(1)
-    cohort_df["Avg Note Length (words)"] = cohort_df["Avg Note Length (words)"].round(1)
-    cohort_df["Escalation Rate (%)"] = cohort_df["Escalation Rate (%)"].round(1)
+    # Full peer group table
+    st.markdown(f'<div class="section-title">Full Peer Group: {peer_group}</div>', unsafe_allow_html=True)
+    cohort_df = metrics_df[metrics_df["peer_group"] == peer_group][[
+        "entity_name", "sector", "avg_investigation_mins", "avg_note_words", "escalation_rate", "total_cases"
+    ]].copy()
+    cohort_df["avg_investigation_mins"] = cohort_df["avg_investigation_mins"].round(1)
+    cohort_df["avg_note_words"]         = cohort_df["avg_note_words"].round(1)
+    cohort_df["escalation_rate"]        = cohort_df["escalation_rate"].round(1)
 
-    st.dataframe(cohort_df, use_container_width=True, hide_index=True)
+    thead = st.columns([3, 1.8, 2, 2.2, 2, 1.5])
+    for c, t in zip(thead, ["Entity Name", "Sector", "Avg Inv. Time (min)", "Avg Note (words)", "Escalation Rate (%)", "Total Cases"]):
+        c.markdown(f'<div class="tbl-head">{t}</div>', unsafe_allow_html=True)
+
+    for idx, (_, r) in enumerate(cohort_df.iterrows()):
+        row_cls = "tbl-row-alt" if idx % 2 == 0 else "tbl-row"
+        rc = st.columns([3, 1.8, 2, 2.2, 2, 1.5])
+        rc[0].markdown(f'<div class="{row_cls}"><strong>{r["entity_name"]}</strong></div>', unsafe_allow_html=True)
+        rc[1].markdown(f'<div class="{row_cls}">{r["sector"]}</div>', unsafe_allow_html=True)
+        rc[2].markdown(f'<div class="{row_cls}">{r["avg_investigation_mins"]}</div>', unsafe_allow_html=True)
+        rc[3].markdown(f'<div class="{row_cls}">{r["avg_note_words"]}</div>', unsafe_allow_html=True)
+        rc[4].markdown(f'<div class="{row_cls}">{r["escalation_rate"]}</div>', unsafe_allow_html=True)
+        rc[5].markdown(f'<div class="{row_cls}">{r["total_cases"]}</div>', unsafe_allow_html=True)

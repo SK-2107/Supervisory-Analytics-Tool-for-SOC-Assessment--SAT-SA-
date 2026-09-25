@@ -6,7 +6,7 @@ Follows: FINDING -> REASON -> EVIDENCE -> EXPLAINABILITY -> REVIEW ACTION.
 
 import streamlit as st
 import pandas as pd
-from src.ui.styles import badge, finding_severity_band, COLOR_HIGH, COLOR_MODERATE, COLOR_TEAL_PRIMARY
+from src.ui.styles import badge, neutral_badge, finding_severity_band, COLOR_CRITICAL, COLOR_HIGH, COLOR_MODERATE, COLOR_TEAL_PRIMARY
 from src.ui.nav import go_to, render_breadcrumbs
 from src.ui.db_helper import fetch_evidence_record
 from src.ui.pages.entity_detail import render_evidence_card
@@ -107,7 +107,7 @@ def render_finding_detail_page(conn, results):
     with st.container():
         st.markdown(
             f"""
-            <div class="satsa-card" style="border-left: 5px solid {COLOR_HIGH if sev_band=='High' else COLOR_MODERATE}; margin-bottom: 18px;">
+            <div class="satsa-card" style="border-left: 4px solid {COLOR_CRITICAL if sev_band=='High' else COLOR_MODERATE}; margin-bottom: 18px;">
                 <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px;">
                     <div>
                         <div style="font-size: 22px; font-weight: 700; color: #172326; letter-spacing: -0.015em;">
@@ -149,7 +149,7 @@ def render_finding_detail_page(conn, results):
     st.markdown('<div class="section-title">What SAT-SA Detected</div>', unsafe_allow_html=True)
     st.markdown(
         f"""
-        <div class="satsa-card" style="font-size: 15px; color: #172326; background: #FFFFFF; border-left: 4px solid #087F73;">
+        <div class="satsa-card-elevated" style="font-size: 15px; color: #172326; background: #FFFFFF; border-left: 4px solid #087F73;">
             <strong>Analytical Output:</strong> {f['reason']}
         </div>
         """,
@@ -183,7 +183,7 @@ def render_finding_detail_page(conn, results):
     st.write("")
 
     # Section 3: WHY WAS THIS FLAGGED?
-    st.markdown('<div class="section-title">Why Was This Flagged? (Explainability Architecture)</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-title">Why Was This Flagged?</div>', unsafe_allow_html=True)
     st.markdown(
         '<div class="section-desc">SAT-SA employs glass-box explainability to eliminate black-box uncertainty for SOC supervisors.</div>',
         unsafe_allow_html=True,
@@ -197,25 +197,25 @@ def render_finding_detail_page(conn, results):
             <div class="satsa-card">
                 <div class="explain-box">
                     <div class="signal-check">
-                        <span class="signal-check-icon">✓</span>
+                        <span class="signal-check-icon">✔</span>
                         <div>
                             <strong>1. Priority Context:</strong> {exp_info['priority_context']}
                         </div>
                     </div>
                     <div class="signal-check">
-                        <span class="signal-check-icon">✓</span>
+                        <span class="signal-check-icon">✔</span>
                         <div>
                             <strong>2. Workflow Condition:</strong> {exp_info['workflow_condition']}
                         </div>
                     </div>
                     <div class="signal-check">
-                        <span class="signal-check-icon">✓</span>
+                        <span class="signal-check-icon">✔</span>
                         <div>
                             <strong>3. Repeated Pattern:</strong> {exp_info['repeated_pattern']}
                         </div>
                     </div>
                     <div class="signal-check">
-                        <span class="signal-check-icon">✓</span>
+                        <span class="signal-check-icon">✔</span>
                         <div>
                             <strong>4. Empirical Traceability:</strong> Flagged directly from {len(evidence_ids)} verified operational record(s) in DuckDB.
                         </div>
@@ -239,7 +239,7 @@ def render_finding_detail_page(conn, results):
         st.caption("No specific individual records attached.")
     else:
         sample_limit = min(len(evidence_ids), 8)
-        tabs = st.tabs([f"Evidence: {eid}" for eid in evidence_ids[:sample_limit]])
+        tabs = st.tabs([f"{eid}" for eid in evidence_ids[:sample_limit]])
         for tab, eid in zip(tabs, evidence_ids[:sample_limit]):
             with tab:
                 render_evidence_card(conn, f["source_record_type"], eid)

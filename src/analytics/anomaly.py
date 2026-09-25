@@ -15,6 +15,21 @@ except Exception:
     HAS_ISOLATION_FOREST = False
 
 
+def get_anomaly_model_status() -> dict:
+    """
+    Returns actual runtime status of anomaly detection engine.
+    Indicates whether Scikit-Learn IsolationForest is actively loaded or if
+    the system is running in statistical baseline fallback mode.
+    """
+    is_active = HAS_ISOLATION_FOREST
+    mode_str = "IsolationForest Active" if is_active else "Statistical Baseline Active"
+    return {
+        "is_ml": is_active,
+        "mode": mode_str,
+        "status_label": f"ML Mode: {mode_str}"
+    }
+
+
 def detect_multivariate_anomalies(conn):
     """
     Extracts multivariate features per analyst and runs Isolation Forest with sample size safeguards.

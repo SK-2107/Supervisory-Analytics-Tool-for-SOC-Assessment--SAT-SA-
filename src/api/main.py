@@ -29,7 +29,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="SAT-SA API",
-    description="Supervisory Analytics Tool for SOC Assessment (SIH26157)",
+    description="Supervisory Analytics Tool for SOC Assessment",
     version="1.0.0",
     lifespan=lifespan
 )
@@ -51,7 +51,7 @@ app.include_router(reports.router)
 def root():
     return {
         "system": "Supervisory Analytics Tool for SOC Assessment (SAT-SA)",
-        "problem_statement": "SIH26157",
+        "framework": "National Critical Sector SOC Operations Oversight",
         "status": "ONLINE (Air-gapped local execution)",
         "docs_url": "/docs"
     }

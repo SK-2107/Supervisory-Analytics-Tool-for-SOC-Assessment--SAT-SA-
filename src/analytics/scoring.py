@@ -1,6 +1,6 @@
 """
 Explainable Supervisory Attention Indicator Scoring Engine for SAT-SA.
-SIH26157 Primary Hierarchy: CSE Assessment -> 8 Capability Dimensions -> Findings -> CSE Attention Indicator.
+Primary Hierarchy: CSE Assessment -> 8 Capability Dimensions -> Findings -> CSE Attention Indicator.
 Disclaimer: Prototype Supervisory Attention Indicator — not an official NCIIPC risk score.
 """
 
@@ -17,7 +17,8 @@ from src.analytics.anomaly import detect_multivariate_anomalies
 from src.analytics.similarity import detect_repetitive_investigations
 
 
-# Configurable prototype dimension weights requiring expert validation
+# Prototype-configured baseline weights for operational demonstration.
+# Note: These weights are configurable prototype defaults and not officially prescribed by NCIIPC.
 DEFAULT_DIMENSION_WEIGHTS = {
     "Threat Detection": 0.15,
     "Investigation": 0.15,

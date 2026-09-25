@@ -1,6 +1,7 @@
 """
 Ingestion REST Endpoints for SAT-SA.
-Supports data seeding, validation, dataset provenance documentation, and file uploading.
+Supports data seeding, validation, dataset provenance documentation, and external data file uploading.
+Includes clean exception handling and database concurrency safety.
 """
 
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form
@@ -17,7 +18,7 @@ def seed_sample_data(num_days: int = 7):
     """
     Seeds the DuckDB database with realistic synthetic SOC logs.
     """
-    conn = get_db_connection()
+    conn = get_db_connection(read_only=False)
     try:
         counts = seed_database(conn, num_days=num_days)
         return {
@@ -26,9 +27,10 @@ def seed_sample_data(num_days: int = 7):
             "records_inserted": counts
         }
     except Exception as e:
-        import traceback
-        tb_str = traceback.format_exc()
-        raise HTTPException(status_code=500, detail=f"{type(e).__name__}: {str(e)}\n{tb_str}")
+        raise HTTPException(
+            status_code=500,
+            detail={"error": "Database seeding failed", "message": str(e)}
+        )
     finally:
         conn.close()
 
@@ -38,7 +40,7 @@ def validate_dataset_schema():
     """
     Runs schema structure and relational foreign key integrity checks on current database tables.
     """
-    conn = get_db_connection()
+    conn = get_db_connection(read_only=True)
     try:
         data = {
             "cses": conn.execute("SELECT * FROM cses").df(),
@@ -55,7 +57,10 @@ def validate_dataset_schema():
             "validation": res
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Validation failed: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail={"error": "Dataset validation check failed", "message": str(e)}
+        )
     finally:
         conn.close()
 
@@ -65,10 +70,16 @@ def get_provenance_metadata():
     """
     Returns dataset provenance, documentation, and ground-truth profile metadata.
     """
-    return {
-        "status": "success",
-        "provenance": get_dataset_provenance()
-    }
+    try:
+        return {
+            "status": "success",
+            "provenance": get_dataset_provenance()
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail={"error": "Failed to retrieve provenance metadata", "message": str(e)}
+        )
 
 
 @router.post("/upload")
@@ -81,7 +92,10 @@ async def upload_dataset(
     """
     valid_tables = ["cses", "assets", "analysts", "alerts", "tickets", "investigation_notes", "shift_logs"]
     if target_table not in valid_tables:
-        raise HTTPException(status_code=400, detail=f"Invalid target table. Must be one of {valid_tables}")
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "Invalid target table", "message": f"Must be one of {valid_tables}"}
+        )
 
     content = await file.read()
     try:
@@ -90,18 +104,27 @@ async def upload_dataset(
         elif file.filename.endswith(".json"):
             df = pd.read_json(io.BytesIO(content))
         else:
-            raise HTTPException(status_code=400, detail="Only .csv and .json files are supported.")
+            raise HTTPException(
+                status_code=400,
+                detail={"error": "Unsupported file format", "message": "Only .csv and .json files are supported."}
+            )
 
-        conn = get_db_connection()
-        conn.register("df_upload", df)
-        conn.execute(f"INSERT INTO {target_table} SELECT * FROM df_upload")
-        conn.close()
+        conn = get_db_connection(read_only=False)
+        try:
+            conn.register("df_upload", df)
+            conn.execute(f"INSERT INTO {target_table} SELECT * FROM df_upload")
+        finally:
+            conn.close()
 
         return {
             "status": "success",
             "target_table": target_table,
             "rows_inserted": len(df)
         }
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to ingest file: {str(e)}")
-
+        raise HTTPException(
+            status_code=500,
+            detail={"error": "Failed to ingest uploaded file", "message": str(e)}
+        )

@@ -59,7 +59,7 @@ def run_all_tests():
     print(f"  -> Dataset Provenance: {prov['dataset_name']} (v{prov['version']})")
     print("  [PASS] Dataset generator, provenance, and schema validation successful.")
 
-    # 3. 8 SIH26157 Capability Dimensions Test
+    # 3. 8 Capability Dimensions Test
     print("\n[3/7] Testing 8 Capability Dimensions & Findings Engine...")
     dim_res = evaluate_cse_capability_dimensions(conn)
     df_findings = dim_res["findings_df"]
@@ -99,8 +99,8 @@ def run_all_tests():
     assert not df_cse_scores.empty
     print("  [PASS] CSE supervisory attention scoring test successful.")
 
-    # 6. Quantitative Ground-Truth Validation Metrics Test
-    print("\n[6/7] Computing Ground-Truth Validation Quality Metrics...")
+    # 6. Quantitative Ground-Truth Synthetic Anomaly Verification
+    print("\n[6/7] Computing Ground-Truth Synthetic Anomaly Verification...")
     tp, fp, tn, fn = 0, 0, 0, 0
     for _, row in df_cse_scores.iterrows():
         cid = row["entity_id"]
@@ -125,14 +125,16 @@ def run_all_tests():
     fpr = fp / (fp + tn) if (fp + tn) > 0 else 0.0
     fnr = fn / (fn + tp) if (fn + tp) > 0 else 0.0
 
-    print(f"  -> Precision: {precision * 100:.1f}%")
-    print(f"  -> Recall:    {recall * 100:.1f}%")
-    print(f"  -> F1-Score:  {f1 * 100:.1f}%")
-    print(f"  -> FPR:       {fpr * 100:.1f}%")
-    print(f"  -> FNR:       {fnr * 100:.1f}%")
+    print("  -> Metric Context: Controlled Synthetic Dataset (Injected Behavioral Profiles)")
+    print(f"  -> Synthetic Profile Verification Rate: {recall * 100:.1f}% (6/6 Injected CSE Profiles Correctly Evaluated)")
+    print(f"  -> Rule Detection Consistency:        {precision * 100:.1f}%")
+    print(f"  -> Synthetic Ground-Truth F1 Score:   {f1 * 100:.1f}%")
+    print(f"  -> False Positive Rate (FPR):         {fpr * 100:.1f}%")
+    print(f"  -> False Negative Rate (FNR):         {fnr * 100:.1f}%")
+    print("  *Note: Verification confirms ground-truth rule coverage on synthetic profiles; not an open-world model accuracy claim.")
     assert precision >= 0.85
     assert recall >= 0.85
-    print("  [PASS] Quantitative validation metrics passed.")
+    print("  [PASS] Synthetic ground-truth validation passed.")
 
     # 7. ReportLab PDF Export Test
     print("\n[7/7] Testing ReportLab PDF Audit Exporter...")
@@ -144,7 +146,7 @@ def run_all_tests():
     conn.close()
 
     print("\n==================================================")
-    print("ALL SAT-SA TESTS PASSED SUCCESSFULLY! [100% SUCCESS]")
+    print("ALL SAT-SA VERIFICATION CHECKS PASSED SUCCESSFULLY")
     print("==================================================")
 
 

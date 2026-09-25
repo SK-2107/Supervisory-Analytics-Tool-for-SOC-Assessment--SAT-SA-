@@ -1,6 +1,6 @@
 """
 SAT-SA 2.0 — Supervisory Analytics Tool for SOC Assessment.
-Smart India Hackathon 2026 | Problem Statement SIH26157 | TOP 50 Stage.
+National Critical Sector SOC Operations Oversight | NCIIPC Context.
 
 Light Enterprise Theme Only. No dark mode. No external network dependencies.
 Strictly offline, air-gapped, explainable supervisory analytics.
@@ -85,36 +85,42 @@ def main():
     inject_custom_css()
 
     conn = get_db_connection()
-    data_loaded = has_any_data(conn)
+    try:
+        data_loaded = has_any_data(conn)
 
-    # Global Top Navigation & Enterprise Brand Header
-    render_global_header(conn, data_loaded)
+        # Global Top Navigation & Enterprise Brand Header
+        render_global_header(conn, data_loaded, current_page=st.session_state.page)
 
-    # Core Analytical Calculations (Real Data Only)
-    results = get_results(conn, data_loaded)
+        # Core Analytical Calculations
+        results = get_results(conn, data_loaded)
 
-    # Routing
-    page = st.session_state.page
-    if page == "overview":
-        render_overview_page(conn, results)
-    elif page == "entities":
-        render_entities_page(conn, results)
-    elif page == "entity_detail":
-        render_entity_detail_page(conn, results)
-    elif page == "findings":
-        render_findings_page(conn, results)
-    elif page == "finding_detail":
-        render_finding_detail_page(conn, results)
-    elif page == "reviews":
-        render_reviews_page(conn, results)
-    elif page == "benchmarking":
-        render_benchmarking_page(conn, results)
-    elif page == "assessment":
-        render_assessment_page(conn, data_loaded)
-    elif page == "reports":
-        render_reports_page(conn, data_loaded, results)
-    else:
-        render_overview_page(conn, results)
+        # Routing
+        page = st.session_state.page
+        if page == "overview":
+            render_overview_page(conn, results)
+        elif page == "entities":
+            render_entities_page(conn, results)
+        elif page == "entity_detail":
+            render_entity_detail_page(conn, results)
+        elif page == "findings":
+            render_findings_page(conn, results)
+        elif page == "finding_detail":
+            render_finding_detail_page(conn, results)
+        elif page == "reviews":
+            render_reviews_page(conn, results)
+        elif page == "benchmarking":
+            render_benchmarking_page(conn, results)
+        elif page == "assessment":
+            render_assessment_page(conn, data_loaded)
+        elif page == "reports":
+            render_reports_page(conn, data_loaded, results)
+        else:
+            render_overview_page(conn, results)
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
 
 
 if __name__ == "__main__":
