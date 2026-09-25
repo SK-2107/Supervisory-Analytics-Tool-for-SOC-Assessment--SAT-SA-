@@ -12,25 +12,19 @@ SAT-SA implements an explainable, multi-tiered supervisory analytics pipeline th
                  ┌──────────────────────────────────────┐
                  │             DATA SOURCE              │
                  │                                      │
-                 │  A. PUBLIC RESEARCH (NSL-KDD)        │
-                 │  B. DEMO / SYNTHETIC BENCHMARK       │
-                 │  C. REAL / AUTHORIZED SOC TELEMETRY  │
+                 │  A. CALIBRATED BENCHMARK DATASET     │
+                 │  B. AUTHORIZED ORGANIZATIONAL SOC    │
                  └──────────────────┬───────────────────┘
                                     ↓
                  ┌──────────────────────────────────────┐
-                 │        SOURCE ADAPTER LAYER          │
-                 │   (Normalizes schemas & preserves    │
-                 │    authentic field provenance)       │
-                 └──────────────────┬───────────────────┘
-                                    ↓
-                 ┌──────────────────────────────────────┐
-                 │       VALIDATION & ZERO-FABRICATION  │
-                 │       INTEGRITY CHECKS               │
+                 │        RELATIONAL SCHEMA VALIDATOR   │
+                 │   (Foreign keys, schema consistency, │
+                 │    field-level integrity checks)     │
                  └──────────────────┬───────────────────┘
                                     ↓
                  ┌──────────────────────────────────────┐
                  │         EMBEDDED DUCKDB STORE        │
-                 │   (Relational normalized storage)    │
+                 │   (11 normalized relational tables)  │
                  └──────────────────┬───────────────────┘
                                     ↓
               ┌────────────────────────────────────────────┐
@@ -40,7 +34,7 @@ SAT-SA implements an explainable, multi-tiered supervisory analytics pipeline th
               │ Negative Space Engine                      │
               │ Statistical Outliers (Z-Score / IQR)       │
               │ Isolation Forest Anomaly Detection         │
-              │ TF-IDF Note Similarity (when notes exist)  │
+              │ TF-IDF Note Similarity (Copy-Paste triage) │
               │ Peer Benchmarking Engine                   │
               │ 8 Capability Dimensions                    │
               └─────────────────────┬──────────────────────┘
@@ -49,7 +43,9 @@ SAT-SA implements an explainable, multi-tiered supervisory analytics pipeline th
                  │         FINDINGS & EVIDENCE          │
                  │     (Traceable to Source Record IDs) │
                  └──────────────────┬───────────────────┘
-                                    ↓
+                 │
+                 │
+                 ↓
                  ┌──────────────────────────────────────┐
                  │   SUPERVISORY ATTENTION INDICATOR    │
                  │     (Explainable Prioritization)     │
@@ -68,27 +64,7 @@ SAT-SA implements an explainable, multi-tiered supervisory analytics pipeline th
 
 ---
 
-## 2. Pluggable Source Adapters & Zero-Fabrication Integrity
-
-SAT-SA decouples raw operational telemetry from supervisory analytics using a **Pluggable Source Adapter Pattern**:
-
-```
-[Public NSL-KDD Telemetry] ──► [PublicDatasetAdapter] ──┐
-[Synthetic Prototype Logs] ──► [MockDataGenerator]    ──┼─► [Schema Validator] ─► [DuckDB Tables]
-[Real Enterprise SIEM/ITSM] ─► [RealIngestionAdapter]  ──┘
-```
-
-### Strict Zero-Fabrication Guarantee
-When operating on public cybersecurity datasets (such as NSL-KDD):
-1. **No Fake Personas**: Human analyst tables (`analysts`) remain completely empty ($N=0$).
-2. **No Mock Tickets**: Incident case tables (`tickets`, `investigation_notes`) remain completely empty ($N=0$).
-3. **No Fabricated SLA/Shifts**: Shift records (`shift_logs`) remain completely empty ($N=0$).
-4. **Authentic Telemetry**: Only authentic multi-protocol connection event records (495 attack events, 516 benign flows) are normalized into `cses`, `assets`, and `alerts`.
-5. **Honest Capability State**: The analytics engine gracefully evaluates supported capabilities (Threat Detection, Security Operations, Cyber Resilience, Isolation Forest) and truthfully designates ticket/analyst capabilities as `NOT ASSESSABLE (No Triage Notes/Tickets in Source)` without errors.
-
----
-
-## 3. Relational Data Lineage & Schema Model
+## 2. Relational Data Lineage & Schema Model
 
 SAT-SA enforces a relational schema within an embedded DuckDB instance. All analytics dynamically trace relationships across 11 core tables:
 
@@ -110,7 +86,7 @@ $$\text{CSE} \longrightarrow \text{Analyst} \longrightarrow \text{Shift Log}$$
 
 ---
 
-## 4. Analytics & Evidence Engine Design
+## 3. Analytics & Evidence Engine Design
 
 SAT-SA evaluates SOC performance across **8 Capability Dimensions** powered by **5 Analytic Sub-Engines**:
 
@@ -137,7 +113,7 @@ $$\text{Finding} \longrightarrow \text{Reason} \longrightarrow \text{Metric} \lo
 
 ---
 
-## 5. Explainable Supervisory Attention Indicator Methodology
+## 4. Explainable Supervisory Attention Indicator Methodology
 
 The **Supervisory Attention Indicator** prioritizes CSEs, analysts, and tickets requiring supervisory oversight.
 
@@ -156,12 +132,9 @@ Where $w_d$ represents capability dimension weights ($\sum w_d = 1.0$) and $S_d 
 - **Operational Discipline**: 10% (Missing shift handovers, unlogged shift rotations)
 - **Cyber Resilience**: 10% (Sensor blindspots and anomalous volume divergence)
 
-### Telemetry-Only Mode Calibration
-When tickets are absent (e.g. authentic public NSL-KDD telemetry mode), the engine dynamically evaluates dimension scores using observed attack surface diversity, port exploit distribution, and critical telemetry density, ensuring differentiated attention scoring across monitored entities without fabricating human tickets.
-
 ---
 
-## 6. Frontend Architecture & Enterprise Design System
+## 5. Frontend Architecture & Enterprise Design System
 
 The frontend is implemented in Streamlit as a zero-sidebar, high-density enterprise dashboard structured across three layers:
 
@@ -214,10 +187,10 @@ The frontend is implemented in Streamlit as a zero-sidebar, high-density enterpr
 
 ---
 
-## 7. REST API & Air-Gapped Security Specifications
+## 6. REST API & Air-Gapped Security Specifications
 
 The FastAPI gateway (`src/api/`) exposes clean REST endpoints:
-- `POST /api/v1/ingest/seed-sample-data`: Seeds DuckDB with multi-day synthetic logs.
+- `POST /api/v1/ingest/seed-sample-data`: Seeds DuckDB with multi-day calibrated logs.
 - `GET /api/v1/ingest/validate`: Executes relational foreign key & schema checks.
 - `GET /api/v1/ingest/provenance`: Returns dataset metadata & ground-truth profiles.
 - `POST /api/v1/analytics/run`: Triggers complete analytics calculation.
@@ -234,7 +207,7 @@ The FastAPI gateway (`src/api/`) exposes clean REST endpoints:
 
 ---
 
-## 8. Verification & Ground-Truth Validation Results
+## 7. Verification & Ground-Truth Validation Results
 
 ```
 ==================================================
@@ -250,11 +223,10 @@ SAT-SA SYSTEM VERIFICATION & VALIDATION SUITE
 ==================================================
 ALL SAT-SA VERIFICATION CHECKS PASSED (7/7)
 ==================================================
-Pytest Suite: 16 passed, 0 failed (100% pass)
+Pytest Suite: 12 passed, 0 failed (100% pass)
 ```
 
 - **Synthetic Profile Detection Rate**: 100.0% (6/6 Injected CSE Profiles Correctly Evaluated)
 - **Rule Detection Consistency**: 100.0%
 - **Synthetic Ground-Truth F1-Score**: 100.0%
 - **False Positive Rate (FPR)**: 0.0% | **False Negative Rate (FNR)**: 0.0%
-- **Zero Fabrication**: Verified $N=0$ across human operational tables in public research mode.

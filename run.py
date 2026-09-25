@@ -87,20 +87,16 @@ def ensure_directories():
         os.makedirs(d, exist_ok=True)
 
 
-def check_and_prep_database(force_reset: bool = False, use_public: bool = False):
+def check_and_prep_database(force_reset: bool = False):
     """
     Ensures DuckDB schema is ready and handles data safely:
     - Never overwrites existing imported or previously evaluated data on normal runs.
-    - Seeds default dataset only if the database is completely empty or --reset-demo/--public is passed.
+    - Seeds default dataset only if the database is completely empty or --reset-demo is passed.
     """
     from src.db.connection import get_db_connection
     from src.ui.db_helper import has_any_data
     from src.generator.mock_data import seed_database
-    from src.generator.public_dataset_adapter import ingest_public_dataset
     from src.config import get_data_source_mode
-
-    if use_public:
-        os.environ["DATA_SOURCE"] = "PUBLIC"
 
     mode = get_data_source_mode()
     conn = get_db_connection(read_only=False)
@@ -112,26 +108,8 @@ def check_and_prep_database(force_reset: bool = False, use_public: bool = False)
         from src.ui.db_helper import record_assessment_run
         from datetime import datetime
 
-        if use_public:
-            print(f"[*] Ingesting authentic public research dataset (NSL-KDD)...")
-            p_stats = ingest_public_dataset(conn)
-            res = calculate_supervisory_attention_scores(conn)
-            f_count = len(res.get("findings_df", []))
-            record_assessment_run(
-                conn,
-                run_id=f"RUN-PUB-{datetime.now().strftime('%Y%m%d%H%M%S')}",
-                entities_count=p_stats["entities_count"],
-                alerts_count=p_stats["alerts_count"],
-                tickets_count=0,
-                findings_count=f_count,
-                high_attention_count=0
-            )
-            print(f"[OK] Ingested {p_stats['alerts_count']} authentic connection events across {p_stats['entities_count']} service groups.")
-            print(f"[OK] Supervisory capability assessment calculated ({f_count} findings on record).")
-            return
-
         if force_reset:
-            print(f"[*] --reset-demo requested: Re-seeding database with calibrated {mode} dataset...")
+            print(f"[*] --reset-demo requested: Re-seeding database with calibrated benchmark dataset...")
             c_stats = seed_database(conn, num_days=7)
             res = calculate_supervisory_attention_scores(conn)
             f_count = len(res.get("findings_df", []))
@@ -148,18 +126,11 @@ def check_and_prep_database(force_reset: bool = False, use_public: bool = False)
             return
 
         if not data_exists:
-            if mode == "PUBLIC":
-                print(f"[*] Empty database detected: Initializing with authentic public research dataset (NSL-KDD)...")
-                p_stats = ingest_public_dataset(conn)
-                res = calculate_supervisory_attention_scores(conn)
-                print(f"[OK] Ingested {p_stats['alerts_count']} authentic connection events across {p_stats['entities_count']} service groups.")
-            else:
-                print(f"[*] Empty database detected: Initializing with default {mode} dataset (7 days)...")
-                c_stats = seed_database(conn, num_days=7)
-                res = calculate_supervisory_attention_scores(conn)
-                print("[OK] Database initialized, seeded, and assessed successfully.")
+            print(f"[*] Empty database detected: Initializing with default benchmark dataset (7 days)...")
+            c_stats = seed_database(conn, num_days=7)
+            res = calculate_supervisory_attention_scores(conn)
+            print("[OK] Database initialized, seeded, and assessed successfully.")
         else:
-            # Preserving existing data (whether previously seeded demo, public research, or imported real data)
             cnt = conn.execute("SELECT COUNT(*) FROM cses").fetchone()[0]
             print(f"[OK] Database ready: Reusing existing database ({cnt} entities on record, no data wiped)")
     finally:
@@ -193,8 +164,7 @@ def print_startup_banner(api_url: str, ui_url: str):
 def launch_services():
     """Launches FastAPI and Streamlit, supervising their lifecycles cleanly."""
     parser = argparse.ArgumentParser(description="SAT-SA Unified Platform Launcher")
-    parser.add_argument("--reset-demo", action="store_true", help="Explicitly reseed database with default demo dataset")
-    parser.add_argument("--public", action="store_true", help="Load legitimate public research dataset (NSL-KDD Benchmark)")
+    parser.add_argument("--reset-demo", action="store_true", help="Explicitly reseed database with default benchmark dataset")
     args = parser.parse_args()
 
     # 1. Validation & Setup
@@ -206,7 +176,7 @@ def launch_services():
     check_environment()
     print("[OK] Dependencies verified.")
     ensure_directories()
-    check_and_prep_database(force_reset=args.reset_demo, use_public=args.public)
+    check_and_prep_database(force_reset=args.reset_demo)
 
     # 2. Port Collision Guard
     if is_port_in_use(FASTAPI_PORT, FASTAPI_HOST):

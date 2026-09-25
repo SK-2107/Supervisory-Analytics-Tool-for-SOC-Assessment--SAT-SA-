@@ -47,7 +47,7 @@ SAT-SA strictly complies with sovereign, air-gapped environment requirements:
 
 ## 🖥️ Modernized UI/UX Experience
 
-The SAT-SA user interface has been built from the ground up for high-density, mission-critical oversight:
+The SAT-SA user interface has been built for high-density, mission-critical oversight:
 - **Enterprise Light Theme**: Clean, distraction-free aesthetic with high-contrast typography, crisp borders, and zero dark-mode/glassmorphism gimmicks.
 - **Top-Level Horizontal Navigation**: Replaces heavy sidebars with an un-truncated top navigation strip:
   1. **Overview**: Executive dashboard with dominant Review Queue hero KPI, priority attention entity cards, and capability distribution bars.
@@ -79,25 +79,19 @@ pip install -r requirements.txt
 
 ### Launch FastAPI Backend + Streamlit UI
 ```powershell
-# Option A: Run with Synthetic Demo Dataset (Default)
 python run.py
-
-# Option B: Run with Authentic Public Research Dataset (NSL-KDD)
-python run.py --public
 ```
 
 `run.py` automatically orchestrates:
 - Checking Python environment & essential dependencies
-- Initializing the local embedded DuckDB database safely
-- Ingesting authentic NSL-KDD telemetry records when `--public` is specified
+- Initializing the local embedded DuckDB database safely with the calibrated benchmark dataset
 - Launching the **FastAPI REST API** at `http://127.0.0.1:8000` (Swagger UI at `/docs`)
 - Launching the **Streamlit Dashboard** at `http://localhost:8501`
 - Handling clean, coordinated teardown on `Ctrl+C`
 
-> **Data Reset**: To explicitly reset and re-seed data:
+> **Data Reset**: To explicitly reset and re-seed the benchmark dataset:
 > ```powershell
-> python run.py --reset-demo     # Reset to fresh Synthetic Demo dataset
-> python run.py --public         # Ingest authentic Public NSL-KDD dataset
+> python run.py --reset-demo
 > ```
 
 ---
@@ -110,44 +104,19 @@ python run_tests.py
 ```
 Validates DuckDB schema initialization, synthetic dataset generator, 8 capability dimensions, analytics sub-engines, CSE supervisory attention scoring, ground-truth profile verification, and ReportLab PDF generation.
 
-### 2. Full Pytest Integration Suite (16 Automated Tests)
+### 2. Full Pytest Integration Suite (12 Automated Tests)
 ```powershell
 pytest
 ```
-Executes complete test suite including public dataset adapter, zero-fabrication verification, and analytics consistency tests.
+Executes complete test suite including analytics algorithms, relational validation rules, and FastAPI REST endpoints.
 
 ---
 
-## 📊 Dataset Architecture & Source Modes
+## 📊 Dataset Architecture & Behavioral Calibration
 
-SAT-SA supports three distinct, decoupled data operational modes:
+SAT-SA operates on a calibrated operational dataset designed for reproducible evaluation of full-stack supervisory workflows:
 
-### A. Public Research Cybersecurity Dataset (NSL-KDD Benchmark)
-For rigorous academic and jury evaluation on legitimate, published cybersecurity telemetry:
-- **Dataset**: NSL-KDD Benchmark Security & Intrusion Dataset
-- **Publisher**: Canadian Institute for Cybersecurity (CIC), University of New Brunswick (UNB)
-- **Academic Citation**: Mahbod Tavallaee, Ebrahim Bagheri, Wei Lu, and Ali A. Ghorbani, *"A Detailed Analysis of the KDD CUP 99 Data Set"*, Proceedings of the 2009 IEEE Symposium on Computational Intelligence for Security and Defense Applications (IEEE CISDA 2009). **DOI: 10.1109/CISDA.2009.5356528**.
-- **Source Mirror**: Official academic repository mirror (`defcom17/NSL_KDD`, IEEE CISDA 2009 benchmark).
-- **Air-Gapped Local Cache**: Cached locally at `data/public/nsl_kdd_small.csv` for 100% offline air-gapped operation.
-- **Record Volume**: 1,011 authentic multi-protocol connection event records (495 attack events across DoS, Probing, U2R, R2L categories; 516 benign baseline flows).
-- **Date Range**: Authentic flow-duration sequenced timeline (`2024-01-15T08:00:02` to `2024-01-19T00:07:32`).
-- **Strict Data Honesty Guarantee**: Telemetry records are mapped to normalized `cses`, `assets`, and `alerts` tables. Human operational tables (`analysts`, `tickets`, `investigation_notes`, `shift_logs`) remain strictly empty ($N=0$) without fabricating fictional personnel or mock notes.
-
-#### Public Telemetry Analytics Compatibility Matrix
-| Supervisory Capability / Analytic Engine | Compatibility Status | Telemetry Source in Public Dataset |
-| :--- | :--- | :--- |
-| **Threat Detection** | **SUPPORTED** | 495 authentic attack signatures (Neptune, Smurf, Satan, Buffer Overflow, etc.) |
-| **Security Operations** | **SUPPORTED** | Connection duration outliers, anomalous TCP termination flags (`REJ`, `S0`, `SF`) |
-| **Cyber Resilience** | **SUPPORTED** | Negative-space telemetry across service endpoints, flagging under-reporting nodes |
-| **Statistical Outliers & Isolation Forest** | **SUPPORTED** | Continuous flow metrics (duration, source/destination bytes, error rates) |
-| **Peer Benchmarking** | **SUPPORTED** | Cross-service infrastructure cohort comparative distributions |
-| **Investigation Quality (TF-IDF)** | **NOT ASSESSABLE** | No triage notes in source network telemetry (Zero fabrication) |
-| **Escalation Compliance** | **NOT ASSESSABLE** | No ticket escalation workflow in source (Zero fabrication) |
-| **Incident Response SLA** | **NOT ASSESSABLE** | No incident case open/close timestamps in source (Zero fabrication) |
-| **Operational Discipline** | **NOT ASSESSABLE** | No human analyst shift rosters in source (Zero fabrication) |
-
-### B. Demo / Synthetic Dataset (Validation Baseline)
-For prototype demonstration and reproducible evaluation of full-stack supervisory workflows:
+### A. Calibrated Demonstration Dataset (Injected Behavioral Profiles)
 - **Purpose**: Evaluates all 8 capability dimensions including human ticketing, SLA compliance, shift handovers, and text similarity.
 - Calibrated with injected behavioral profiles across 6 Critical Sector Entities (CSEs) to verify detection rule coverage:
   - **CSE-101**: `MATURE_NORMAL` (Standard compliance baseline — zero attention findings)
@@ -157,7 +126,7 @@ For prototype demonstration and reproducible evaluation of full-stack supervisor
   - **CSE-105**: `MONITORING_BLIND_SPOT` (Unlogged night shifts & telemetry gaps)
   - **CSE-106**: `METRIC_GAMING` (SLA compliance gaming)
 
-### C. Using Legitimate Real SOC Data
+### B. Using Legitimate Real SOC Data
 When authorized organizational SOC operational records become available:
 1. **Format**: Structured records in `.csv` or `.json` matching the normalized table schemas (`cses`, `assets`, `analysts`, `alerts`, `tickets`, `investigation_notes`, `shift_logs`).
 2. **Ingestion**: Upload via the Data & Reports UI tab, or POST to `/api/v1/ingest/upload`.
@@ -171,7 +140,6 @@ When authorized organizational SOC operational records become available:
 ```
 SAT-SA/
 ├── data/                       # Local DuckDB storage (sat_sa.duckdb)
-│   └── public/                 # Authentic public dataset cache (nsl_kdd_small.csv)
 ├── src/                        # Platform Source Code
 │   ├── analytics/              # Analytics & Scoring Engines
 │   │   ├── anomaly.py          # Isolation Forest & Statistical Anomaly Engine
@@ -185,13 +153,12 @@ SAT-SA/
 │   │   ├── main.py             # FastAPI App Entrypoint & Lifespan
 │   │   ├── models.py           # Pydantic Request/Response Models
 │   │   └── routes/             # REST Endpoints (ingest, analytics, reports)
-│   ├── config.py               # Central Dynamic Provenance & Configuration
+│   ├── config.py               # Central Data Source & Configuration
 │   ├── db/                     # Embedded Database Layer
 │   │   ├── connection.py       # Thread-Safe DuckDB Connection Manager
 │   │   └── schema.py           # DuckDB Schema Definitions (11 Tables)
 │   ├── generator/              # Dataset Pipeline & Ingest Validator
-│   │   ├── mock_data.py        # Synthetic Dataset Generator & Validation
-│   │   └── public_dataset_adapter.py # Authentic NSL-KDD Ingestion Adapter
+│   │   └── mock_data.py        # Calibrated Dataset Generator & Validation
 │   ├── reporting/              # Audit Exporter
 │   │   └── pdf_generator.py    # ReportLab Executive PDF Exporter
 │   └── ui/                     # Modernized Streamlit Supervisory UI
@@ -209,7 +176,7 @@ SAT-SA/
 │           ├── benchmarking.py # Peer Cohort Benchmarking (Plotly)
 │           ├── assessment.py   # 5-Step Assessment Workflow Pipeline
 │           └── reports.py      # PDF & CSV Audit Data Exports
-├── tests/                      # Automated Pytest Suite (16 Tests)
+├── tests/                      # Automated Pytest Suite (12 Tests)
 ├── ARCHITECTURE.md             # System Architecture & Technical Specifications
 ├── README.md                   # Platform Documentation & Guide
 ├── requirements.txt            # Python Dependencies
